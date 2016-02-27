@@ -14,3 +14,6 @@ Used the following development tools;
   <li>Visual Studio 2015 with Visual Micro extension for arduino code.</li>
 </ul>
 
+Please refer to the WifiManager connection library documentation for the wifi setup.
+
+https://tzapu.com/esp8266-wifi-connection-manager-library-arduino-ide/
