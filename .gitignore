@@ -45,6 +45,7 @@ proguard/
 *.cache
 *.suo
 *.user
+*.vcxproj
 bin/
 obj/
 Debug/
