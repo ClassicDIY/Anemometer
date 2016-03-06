@@ -1,5 +1,6 @@
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <DNSServer.h>
 #include <ESP8266mDNS.h>
@@ -41,6 +42,9 @@ int _hours_Offset_From_GMT = -5;
 int hour;
 int minute;
 int second;
+
+unsigned long _lastHighWindTime;
+float _highWindSpeed = 0;
 
 // send an NTP request to the time server at the given address
 unsigned long sendNTPpacket(IPAddress& address)
@@ -114,21 +118,31 @@ void PrintTime()
 
 void runWindMonitor()
 {
-	PrintTime();
+	//PrintTime();
 
 	float windSpeed = _anemometer.WindSpeed();
-	Serial.print("Wind speed: ");
-	Serial.print(windSpeed * 3.6);
-	Serial.println(" Kmh");
+  if (_highWindSpeed < windSpeed) {
+    _highWindSpeed = windSpeed;
+    _lastHighWindTime = _epoch + (millis() - _lastNTP) / 1000;
+  }
+	//Serial.print("Wind speed: ");
+	//Serial.print(windSpeed * 3.6);
+	//Serial.println(" Kmh");
 
-	Serial.print("SensorVoltage: ");
-	Serial.print(_anemometer.SensorVoltage(), 6);
-	Serial.println(" ");
-	if (_wsConnected) {
-		char buffer[20];
-    dtostrf(windSpeed * 3.6, 6, 2 ,buffer);
-		webSocket.broadcastTXT(buffer, strlen(buffer));
-	}
+	//Serial.print("SensorVoltage: ");
+	//Serial.print(_anemometer.SensorVoltage(), 6);
+	//Serial.println(" ");
+    if (_wsConnected) {
+  		StaticJsonBuffer<64> jsonBuffer;
+  		JsonObject& root = jsonBuffer.createObject();
+  		root["ws"] = windSpeed * 3.6;
+  		root["hws"] = _highWindSpeed * 3.6;
+  		root["hwt"] = _lastHighWindTime;
+  		char buffer[64];
+  		root.printTo(buffer, 64);
+  		webSocket.broadcastTXT(buffer, strlen(buffer));
+  		//root.printTo(Serial);
+		}
 }
 
 void runWebServer()
@@ -310,8 +324,6 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
 		{
 			IPAddress ip = webSocket.remoteIP(num);
 			Serial.printf("Client #[%u] connected from %d.%d.%d.%d url: %s\r\n", num, ip[0], ip[1], ip[2], ip[3], payload);
-			// send message to client
-			webSocket.sendTXT(num, "Connected");
 			_wsConnected = true;
 		}
 		break;
@@ -325,6 +337,10 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
 
 			Serial.printf("Get rotation value: [%u]\r\n", rotation);
 		}
+		break;
+
+	case WStype_ERROR:
+		Serial.printf("[%u] WStype_ERROR!\r\n", num);
 		break;
 	}
 }
@@ -372,7 +388,7 @@ void setup()
   _workerThreadWindMonitor->setInterval(500);
   _controller.add(_workerThreadWindMonitor);
   _workerThreadWebServer->onRun(runWebServer);
-  _workerThreadWebServer->setInterval(2000);
+  _workerThreadWebServer->setInterval(200);
   _controller.add(_workerThreadWebServer);
   
   setupFileSystem();
