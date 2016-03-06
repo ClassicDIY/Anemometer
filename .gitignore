@@ -47,6 +47,7 @@ proguard/
 *.user
 bin/
 obj/
+Debug/
 __vm/
 .vs/
 code/Android/app/src/debug/res/values/google_maps_api.xml
