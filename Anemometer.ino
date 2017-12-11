@@ -14,6 +14,8 @@
 #include <Hash.h>
 #include <Anemometer.h>
 
+// Don't forget to click vMicro->'Publish Server Data Files' to upload the index.html file for the initial setup of the NodeMCU
+
 IPAddress apIP(192, 168, 100, 4);
 
 Anemometer _anemometer(A0, .0029343066);
