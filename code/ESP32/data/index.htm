@@ -56,7 +56,7 @@
 			"use strict";
 			if (window.WebSocket) {      
 				console.log("WebSocket object is supported in your browser");
-				   socket = new WebSocket('ws://'+location.hostname+':81/');
+				   socket = new WebSocket('ws://'+location.hostname+'/ws');
 				  socket.onopen = function () {
 					console.log('Connect requested');
 					socket.send('Connect ' + new Date());
