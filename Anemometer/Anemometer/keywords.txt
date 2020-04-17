@@ -1,0 +1,3 @@
+Anemometer KEYWORD1
+WindSpeed KEYWORD2
+SensorVoltage KEYWORD3
