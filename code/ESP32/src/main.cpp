@@ -21,7 +21,7 @@
 
 IPAddress apIP(192, 168, 100, 4);
 
-Anemometer _anemometer(A0, .0029343066);
+Anemometer _anemometer(ANEMOMETER_ADC_PIN, .0029343066);
 AsyncWebServer  server(80);
 AsyncWebSocket ws("/ws");
 
@@ -146,8 +146,8 @@ void runWindMonitor()
 		root["hws"] = _highWindSpeed * 3.6;
 		root["hwt"] = _lastHighWindTime;
 		serializeJson(root, s);
-		ws.textAll(s);
-		Serial.println(s);
+		ws.textAll(s.c_str());
+		// Serial.println(s);
 	}
 }
 
@@ -192,6 +192,7 @@ void runUdpReceive()
 }
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len){
+	Serial.printf("onWsEvent");
   if(type == WS_EVT_CONNECT){
     Serial.printf("ws[%s][%u] connect\n", server->url(), client->id());
     client->printf("Hello Client %u :)", client->id());
@@ -263,6 +264,10 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
   }
 }
 
+void notFound(AsyncWebServerRequest *request) {
+    request->send(404, "text/plain", "Not found");
+}
+
 const char* ssid = "SkyeNet";
 const char* password = "acura22546";
 const char * hostName = "esp-async";
@@ -311,7 +316,7 @@ void setup()
 	// _workerThreadUdpReceive->setInterval(5000);
 	// _controller.add(_workerThreadUdpReceive);
 	_workerThreadWindMonitor->onRun(runWindMonitor);
-	_workerThreadWindMonitor->setInterval(500);
+	_workerThreadWindMonitor->setInterval(2000);
 	_controller.add(_workerThreadWindMonitor);
 	// _workerThreadWebServer->onRun(runWebServer);
 	// _workerThreadWebServer->setInterval(200);
@@ -323,12 +328,24 @@ void setup()
 	}
 	else {
 		Serial.println("File system mounted");
+		File root = SPIFFS.open("/");
+		File file = root.openNextFile();
+		while(file){
+		
+			Serial.print("FILE: ");
+			Serial.println(file.name());
+			file = root.openNextFile();
+		}
 		server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.htm");
 	}
+	server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){
+		request->send(200, "text/plain", String(ESP.getFreeHeap()));
+	});
 
 	ws.onEvent(onWsEvent);
 	server.addHandler(&ws);
-	
+	server.onNotFound(notFound);
+	server.begin();
 	Serial.println("Setup Done");
   
 }
