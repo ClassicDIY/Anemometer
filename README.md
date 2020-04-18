@@ -11,9 +11,6 @@ This project is based on the ESP12e, it works with the Adafruit Anemometer https
 Used the following development tools;
 
 <ul>
-  <li>Visual Studio 2015 with Visual Micro extension for arduino code.</li>
+  <li>Visual Studio Code with the PlatformIO extension.</li>
 </ul>
 
-Please refer to the WifiManager connection library documentation for the wifi setup.
-
-https://tzapu.com/esp8266-wifi-connection-manager-library-arduino-ide/
