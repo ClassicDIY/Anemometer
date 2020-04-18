@@ -8,7 +8,8 @@
 		"files.associations": {
 			"system_error": "cpp",
 			"*.tcc": "cpp",
-			"istream": "cpp"
+			"istream": "cpp",
+			"functional": "cpp"
 		}
 	}
 }
