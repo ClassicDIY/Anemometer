@@ -18,8 +18,8 @@ Anemometer _anemometer(AnemometerPin);
 WebServer _webServer(80);
 WebSocketsServer _webSocket = WebSocketsServer(81);
 boolean _wsConnected = false;
-// ThreadController _controller = ThreadController();
-// Thread *_workerThreadWindMonitor = new Thread();
+ThreadController _controller = ThreadController();
+Thread *_workerThreadWindMonitor = new Thread();
 IOT _iot = IOT(&_webServer);
 
 unsigned long _epoch = 0; //Unix time in seconds
@@ -136,9 +136,9 @@ void setup()
 		; // wait for serial port to connect.
 	}
 	// Configure main worker thread
-	// _workerThreadWindMonitor->onRun(runWindMonitor);
-	// _workerThreadWindMonitor->setInterval(100);
-	// _controller.add(_workerThreadWindMonitor);
+	_workerThreadWindMonitor->onRun(runWindMonitor);
+	_workerThreadWindMonitor->setInterval(20);
+	_controller.add(_workerThreadWindMonitor);
 	setupFileSystem();
 	WiFi.onEvent(WiFiEvent);
 	_iot.Init();
@@ -151,8 +151,7 @@ void loop()
 	_iot.Run();
 	if (WiFi.isConnected())
 	{
-		// _controller.run();
-		runWindMonitor();
+		_controller.run();
 		_webSocket.loop();
 	}
 }
