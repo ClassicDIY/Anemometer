@@ -5,7 +5,7 @@ namespace AnemometerNS
 {
 	class Anemometer
 	{
-		#define SAMPLESIZE 16
+		#define SAMPLESIZE 10
 		int _sensorPin; // Defines the pin that the anemometer output is connected to
 		#define ADC_Resolution 4095.0
 	public:
