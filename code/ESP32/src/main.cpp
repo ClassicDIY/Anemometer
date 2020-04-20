@@ -2,101 +2,87 @@
 #include <ArduinoJson.h>
 #include <FS.h>
 #include <SPIFFS.h>
-#include <mdns.h>
 #include <WiFi.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
+#include <WebServer.h>
+#include <WebSocketsServer.h>
 #include <time.h>
 #include <ThreadController.h>
 #include <Thread.h>
 #include "Log.h"
+#include "IOT.h"
 #include "Anemometer.h"
 
 using namespace AnemometerNS;
 
 Anemometer _anemometer(AnemometerPin);
-AsyncWebServer _server(80);
-AsyncWebSocket _ws("/ws");
-ThreadController _controller = ThreadController();
-Thread *_workerThreadWindMonitor = new Thread();
-
-const char *ssid = "SkyeNet";
-const char *password = "acura22546";
-const char *hostName = "esp-async";
-const char *ntpServer = "pool.ntp.org";
+WebServer _webServer(80);
+WebSocketsServer _webSocket = WebSocketsServer(81);
+boolean _wsConnected = false;
+// ThreadController _controller = ThreadController();
+// Thread *_workerThreadWindMonitor = new Thread();
+IOT _iot = IOT(&_webServer);
 
 unsigned long _epoch = 0; //Unix time in seconds
 unsigned long _lastNTP = 0;
 unsigned long _lastHighWindTime = 0;
 float _highWindSpeed = 0;
+float _lastWindSpeed = 0;
 
 void runWindMonitor()
 {
 	float windSpeed = _anemometer.WindSpeed();
-	if (_highWindSpeed < windSpeed)
+	if (abs(_lastWindSpeed - windSpeed) > AnemometerWindSpeedGranularity) // limit broadcast to AnemometerWindSpeedGranularity km/h changes
 	{
-		_highWindSpeed = windSpeed;
-		struct timeval tv;
-		gettimeofday(&tv, NULL);
-		logi("unixtime: %d", tv.tv_sec);
-		_lastHighWindTime = tv.tv_sec;
-	}
-	if (_ws.enabled())
-	{
-		StaticJsonDocument<128> root;
-		String s;
-		float ws = roundf(windSpeed * 3.6 * 10); // convert to km/h and round to 1 decimal place
-		ws = ws / 10;
-		root["ws"] = ws;
-		ws = roundf(_highWindSpeed * 3.6 * 10); // convert to km/h and round to 1 decimal place
-		ws = ws / 10;
-		root["hws"] = ws;
-		root["hwt"] = _lastHighWindTime;
-		serializeJson(root, s);
-		_ws.textAll(s.c_str());
-		logd("JSON: %s", s.c_str());
+		windSpeed = windSpeed <= AnemometerWindSpeedGranularity ? 0 : windSpeed;
+		_lastWindSpeed = windSpeed;
+		if (_highWindSpeed < windSpeed)
+		{
+			_highWindSpeed = windSpeed;
+			struct timeval tv;
+			gettimeofday(&tv, NULL);
+			logi("unixtime: %d", tv.tv_sec);
+			_lastHighWindTime = tv.tv_sec;
+		}
+		if (_wsConnected)
+		{
+			StaticJsonDocument<128> root;
+			String s;
+			root["ws"] = windSpeed;
+			root["hws"] = _highWindSpeed;
+			root["hwt"] = _lastHighWindTime;
+			serializeJson(root, s);
+			_webSocket.broadcastTXT(s.c_str(), s.length());
+			logd("Wind Speed: %f JSON: %s", windSpeed, s.c_str());
+		}
 	}
 }
 
-void notFound(AsyncWebServerRequest *request)
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t lenght)
 {
-	loge("Request: %s", request->url());
-	request->send(404, "text/plain", "Not found");
+	switch (type)
+	{
+	case WStype_DISCONNECTED:
+		logd("[%u] Disconnected!\r\n", num);
+		_wsConnected = false;
+		break;
+	case WStype_CONNECTED:
+	{
+		IPAddress ip = _webSocket.remoteIP(num);
+		logd("Client #[%u] connected from %d.%d.%d.%d url: %s\r\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+		_wsConnected = true;
+	}
+	break;
+	case WStype_ERROR:
+		logd("[%u] WStype_ERROR!\r\n", num);
+		break;
+	default:
+		logd("WStype: %u\r\n", type);
+		break;
+	}
 }
 
-void setup()
+void setupFileSystem()
 {
-	Serial.begin(115200);
-
-	logd("Port Openned");
-
-	//   WiFiManager wifiManager;
-	//   //wifiManager.resetSettings(); //reset settings - for testing
-	//   wifiManager.setTimeout(180);
-	//   if (!wifiManager.autoConnect("AutoConnectAP")) {
-	//     logd("failed to connect and hit timeout");
-	//     delay(3000);
-	//     //reset and try again, or maybe put it to deep sleep
-	//     ESP.reset();
-	//     delay(5000);
-	//   }
-	WiFi.softAP(hostName);
-	WiFi.begin(ssid, password);
-	if (WiFi.waitForConnectResult() != WL_CONNECTED)
-	{
-		logd("STA: Failed!\n");
-		WiFi.disconnect(false);
-		delay(1000);
-		WiFi.begin(ssid, password);
-	}
-
-	logi("WiFi connected");
-	logi("IP address: %s", WiFi.localIP().toString().c_str());
-
-	// Configure main worker thread
-	_workerThreadWindMonitor->onRun(runWindMonitor);
-	_workerThreadWindMonitor->setInterval(2000);
-	_controller.add(_workerThreadWindMonitor);
 	if (!SPIFFS.begin())
 	{
 		logd("Failed to mount file system");
@@ -111,31 +97,62 @@ void setup()
 			file = root.openNextFile();
 		}
 	}
-	//initialize mDNS service
-	esp_err_t err = mdns_init();
-	if (err)
+}
+
+void WiFiEvent(WiFiEvent_t event)
+{
+	switch (event)
 	{
-		printf("MDNS Init failed: %d\n", err);
+	case SYSTEM_EVENT_STA_GOT_IP:
+		// start webSocket server
+		_wsConnected = false;
+		_webSocket.begin();
+		_webSocket.onEvent(webSocketEvent);
+		break;
+	case SYSTEM_EVENT_STA_DISCONNECTED:
+		_webSocket.close();
+		break;
+	default:
+		break;
 	}
-	else
+}
+
+void handleRoot()
+{
+	File f = SPIFFS.open("/index.htm", "r");
+	if (!f)
 	{
-		//set hostname
-		mdns_hostname_set("Anemometer");
-		mdns_instance_name_set("ESP32 Anemometer");
+		logw("index.htm not uploaded to device");
+		return;
 	}
-	_server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request) {
-		request->send(200, "text/plain", String(ESP.getFreeHeap()));
-	});
-	_server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.htm");
-	_server.addHandler(&_ws);
-	_server.onNotFound(notFound);
-	_server.begin();
-	configTime(0, 0, ntpServer);
+	_webServer.streamFile(f, "text/html");
+}
+
+void setup()
+{
+	Serial.begin(115200);
+	while (!Serial)
+	{
+		; // wait for serial port to connect.
+	}
+	// Configure main worker thread
+	// _workerThreadWindMonitor->onRun(runWindMonitor);
+	// _workerThreadWindMonitor->setInterval(100);
+	// _controller.add(_workerThreadWindMonitor);
+	setupFileSystem();
+	WiFi.onEvent(WiFiEvent);
+	_iot.Init();
+	_webServer.on("/", handleRoot);
 	logd("Setup Done");
 }
 
 void loop()
 {
-	_controller.run();
-	_ws.cleanupClients();
+	_iot.Run();
+	if (WiFi.isConnected())
+	{
+		// _controller.run();
+		runWindMonitor();
+		_webSocket.loop();
+	}
 }

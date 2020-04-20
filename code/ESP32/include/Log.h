@@ -41,3 +41,18 @@ void inline printHexString(char* ptr, int len)
 #define loge(format, ...)
 #endif
 
+void inline printLocalTime()
+{
+#if APP_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
+	struct tm timeinfo;
+	if (!getLocalTime(&timeinfo))
+	{
+		logi("Failed to obtain time");
+		return;
+	}
+	char buf[64];
+	buf[0] = 0;
+	strftime(buf, 64, "%A, %B %d %Y %H:%M:%S", &timeinfo);
+	logi("Date Time: %s", buf);
+#endif
+}
