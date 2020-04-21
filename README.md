@@ -8,6 +8,12 @@ This project is based on the ESP12e, it works with the Adafruit Anemometer https
   <img src="https://www.adafruit.com/images/1200x900/1733-00.jpg" width="350"/>
 </p>
 
+## Wiring
+
+Device Pin | ESP32 |
+--- | --- |
+Anemometer Signal | A0 |
+
 Used the following development tools;
 
 <ul>
