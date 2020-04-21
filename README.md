@@ -13,6 +13,8 @@ This project is based on the ESP12e, it works with the Adafruit Anemometer https
 Device Pin | ESP32 |
 --- | --- |
 Anemometer Signal | A0 |
+Anemometer +5 | Vin |
+Anemometer Gnd | Gnd |
 
 Used the following development tools;
 
