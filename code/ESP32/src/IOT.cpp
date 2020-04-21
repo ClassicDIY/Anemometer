@@ -36,8 +36,8 @@ void publishDiscovery()
 	sprintf(buffer, "%s_%X_WindSpeed", _iotWebConf.getThingName(), _uniqueId);
 	doc["unique_id"] = buffer;
 	doc["unit_of_measurement"] = "km-h";
-	doc["spd_stat_t"] = "~/stat";
-	doc["spd_val_tpl"] = "{{ value_json.windspeed}}";
+	doc["stat_t"] = "~/stat";
+	doc["stat_tpl"] = "{{ value_json.windspeed}}";
 	doc["avty_t"] = "~/tele/LWT";
 	doc["pl_avail"] = "Online";
 	doc["pl_not_avail"] = "Offline";
@@ -47,8 +47,7 @@ void publishDiscovery()
 	device["manufacturer"] = "ClassicDIY";
 	sprintf(buffer, "ESP32-Bit (%X)", _uniqueId);
 	device["model"] = buffer;
-	JsonArray identifiers = device.createNestedArray("identifiers");
-	identifiers.add(_uniqueId);
+	device["identifiers"] = _uniqueId;
 	doc["~"] = _mqttRootTopic;
 	String s;
 	serializeJson(doc, s);
