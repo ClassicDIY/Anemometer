@@ -33,17 +33,18 @@ void publishDiscovery()
 	char buffer[STR_LEN];
 	StaticJsonDocument<1024> doc; // MQTT discovery
 	doc["name"] = _iotWebConf.getThingName();
-	sprintf(buffer, "%X", _uniqueId);
+	sprintf(buffer, "%s_%X_WindSpeed", _iotWebConf.getThingName(), _uniqueId);
 	doc["unique_id"] = buffer;
-	doc["mode_cmd_t"] = "~/cmnd/MODE";
-	doc["mode_stat_t"] = "~/stat/MODE";
+	doc["unit_of_measurement"] = "km-h";
+	doc["spd_stat_t"] = "~/stat";
+	doc["spd_val_tpl"] = "{{ value_json.windspeed}}";
 	doc["avty_t"] = "~/tele/LWT";
 	doc["pl_avail"] = "Online";
 	doc["pl_not_avail"] = "Offline";
 	JsonObject device = doc.createNestedObject("device");
-	device["name"] = "SkyeTracker";
+	device["name"] = _iotWebConf.getThingName();
 	device["sw_version"] = CONFIG_VERSION;
-	device["manufacturer"] = "SkyeTracker";
+	device["manufacturer"] = "ClassicDIY";
 	sprintf(buffer, "ESP32-Bit (%X)", _uniqueId);
 	device["model"] = buffer;
 	JsonArray identifiers = device.createNestedArray("identifiers");
@@ -52,7 +53,7 @@ void publishDiscovery()
 	String s;
 	serializeJson(doc, s);
 	char configurationTopic[64];
-	sprintf(configurationTopic, "%s/solar/%X/config", HOME_ASSISTANT_PREFIX, _uniqueId);
+	sprintf(configurationTopic, "%s/sensor/%s/%X/WindSpeed/config", HOME_ASSISTANT_PREFIX, _iotWebConf.getThingName(), _uniqueId);
 	if (_mqttClient.publish(configurationTopic, 0, true, s.c_str(), s.length()) == 0)
 	{
 		loge("**** Configuration payload exceeds MAX MQTT Packet Size");
@@ -62,12 +63,6 @@ void publishDiscovery()
 void onMqttConnect(bool sessionPresent)
 {
 	logd("Connected to MQTT. Session present: %d", sessionPresent);
-	char mqttCmndTopic[STR_LEN];
-	sprintf(mqttCmndTopic, "%s/cmnd/Mode", _mqttRootTopic);
-	uint16_t packetIdSub = _mqttClient.subscribe(mqttCmndTopic, 1);
-	sprintf(mqttCmndTopic, "%s/cmnd/MoveTo", _mqttRootTopic);
-	packetIdSub = _mqttClient.subscribe(mqttCmndTopic, 1);
-	logd("MQTT subscribe, QoS 1, packetId: %d", packetIdSub);
 	publishDiscovery();
 	_mqttClient.publish(_willTopic, 0, false, "Online");
 }
@@ -75,6 +70,10 @@ void onMqttConnect(bool sessionPresent)
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
 {
 	logw("Disconnected from MQTT. Reason: %d", (int8_t)reason);
+	if (WiFi.isConnected())
+	{
+		xTimerStart(mqttReconnectTimer, 0);
+	}
 }
 
 void connectToMqtt()
@@ -122,33 +121,6 @@ void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties 
 {
 	logd("MQTT Message arrived [%s]  qos: %d len: %d index: %d total: %d", topic, properties.qos, len, index, total);
 	printHexString(payload, len);
-	// ToDo
-
-	// int l = strlen(_mqttRootTopic) + 6;
-	// if (l < strlen(topic) && len < 8)
-	// {
-	// 	char *p = &topic[l];
-	// 	logd("p: %s", p);
-	// 	char cmd[16];
-	// 	char pl[16];
-	// 	if (strcmp("Mode", p) == 0)
-	// 	{
-	// 		strncpy(pl, payload, len);
-	// 		pl[len] = 0;
-	// 		sprintf(cmd, "%s|", pl);
-	// 		logd("cmd: %s", cmd);
-	// 		_tracker.ProcessCommand(cmd);
-	// 	}
-	// 	if (strcmp("MoveTo", p) == 0)
-	// 	{
-
-	// 		strncpy(pl, payload, len);
-	// 		pl[len] = 0;
-	// 		sprintf(cmd, "MoveTo|%s", pl);
-	// 		logd("cmd: %s", cmd);
-	// 		_tracker.ProcessCommand(cmd);
-	// 	}
-	// }
 }
 
 IOT::IOT(WebServer* pWebServer)
@@ -252,6 +224,12 @@ void IOT::Init()
 			}
 		}
 	}
+	// generate unique id from mac address NIC segment
+	uint8_t chipid[6];
+	esp_efuse_mac_get_default(chipid);
+	_uniqueId = chipid[3] << 16;
+	_uniqueId += chipid[4] << 8;
+	_uniqueId += chipid[5];
 	// Set up required URL handlers on the web server.
 	_pWebServer->on("/settings", handleSettings);
 	_pWebServer->on("/config", [] { _iotWebConf.handleConfig(); });
@@ -326,9 +304,10 @@ void IOT::publish(const char *subtopic, const char *value, boolean retained)
 	if (_mqttClient.connected())
 	{
 		char buf[64];
-		sprintf(buf, "%s/stat/%s", _mqttRootTopic, subtopic);
+		sprintf(buf, "%s/%s", _mqttRootTopic, subtopic);
 		_mqttClient.publish(buf, 0, retained, value);
 	}
 }
+
 
 } // namespace SkyeTracker

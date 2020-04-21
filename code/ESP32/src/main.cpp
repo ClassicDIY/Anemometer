@@ -20,6 +20,7 @@ WebSocketsServer _webSocket = WebSocketsServer(81);
 boolean _wsConnected = false;
 ThreadController _controller = ThreadController();
 Thread *_workerThreadWindMonitor = new Thread();
+Thread *_workerThreadMQTT = new Thread();
 IOT _iot = IOT(&_webServer);
 
 unsigned long _epoch = 0; //Unix time in seconds
@@ -27,30 +28,59 @@ unsigned long _lastNTP = 0;
 unsigned long _lastHighWindTime = 0;
 float _highWindSpeed = 0;
 float _lastWindSpeed = 0;
+boolean _updateMQTT_windSpeed = false;
+boolean _updateMQTT_highWindSpeed = false;
+StaticJsonDocument<128> _doc;
+
+void runMQTT()
+{
+	if (_updateMQTT_windSpeed)
+	{
+		String s;
+		_doc.clear();
+		_doc["windspeed"] = _lastWindSpeed;
+		serializeJson(_doc, s);
+		_iot.publish("stat", s.c_str());
+		_updateMQTT_windSpeed = false;
+	}
+	if (_updateMQTT_highWindSpeed)
+	{
+		String s;
+		_doc.clear();
+		_doc["hws"] = _highWindSpeed;
+		_doc["hwt"] = _lastHighWindTime;
+		serializeJson(_doc, s);
+		_iot.publish("stat", s.c_str());
+		_updateMQTT_highWindSpeed = false;
+	}
+
+}
 
 void runWindMonitor()
 {
 	float windSpeed = _anemometer.WindSpeed();
 	if (abs(_lastWindSpeed - windSpeed) > AnemometerWindSpeedGranularity) // limit broadcast to AnemometerWindSpeedGranularity km/h changes
 	{
+		_updateMQTT_windSpeed = true;
 		windSpeed = windSpeed <= AnemometerWindSpeedGranularity ? 0 : windSpeed;
 		_lastWindSpeed = windSpeed;
 		if (_highWindSpeed < windSpeed)
 		{
+			_updateMQTT_highWindSpeed = true;
 			_highWindSpeed = windSpeed;
 			struct timeval tv;
 			gettimeofday(&tv, NULL);
-			logi("unixtime: %d", tv.tv_sec);
+			logd("unixtime: %d", tv.tv_sec);
 			_lastHighWindTime = tv.tv_sec;
 		}
 		if (_wsConnected)
 		{
-			StaticJsonDocument<128> root;
 			String s;
-			root["ws"] = windSpeed;
-			root["hws"] = _highWindSpeed;
-			root["hwt"] = _lastHighWindTime;
-			serializeJson(root, s);
+			_doc.clear();
+			_doc["ws"] = windSpeed;
+			_doc["hws"] = _highWindSpeed;
+			_doc["hwt"] = _lastHighWindTime;
+			serializeJson(_doc, s);
 			_webSocket.broadcastTXT(s.c_str(), s.length());
 			logd("Wind Speed: %f JSON: %s", windSpeed, s.c_str());
 		}
@@ -139,6 +169,9 @@ void setup()
 	_workerThreadWindMonitor->onRun(runWindMonitor);
 	_workerThreadWindMonitor->setInterval(20);
 	_controller.add(_workerThreadWindMonitor);
+	_workerThreadMQTT->onRun(runMQTT);
+	_workerThreadMQTT->setInterval(MQTT_PublishRate);
+	_controller.add(_workerThreadMQTT);
 	setupFileSystem();
 	WiFi.onEvent(WiFiEvent);
 	_iot.Init();

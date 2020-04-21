@@ -17,7 +17,6 @@ public:
     void Init();
     void Run();
     void publish(const char *subtopic, const char *value, boolean retained = false);
-
 private:
     bool _clientsConfigured = false;
 };
