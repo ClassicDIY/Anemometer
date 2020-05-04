@@ -4,7 +4,7 @@ Wireless WIFI Anemometer using ESP12e
 |If you find this project useful or interesting, please help support further development!|[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/donate/?token=ujPa7RERQZhNZKCdWB_BCvQi7Wv43j7ZffsEqVqdVUcGQcbNZ0Ov1Dy-ZhgALX8rstQBZW&country.x=US&locale.x=)|
 |---|---|
 
-[![GitHub stars](https://img.shields.io/github/stars/ClassicDIY/ModbusTool?style=for-the-badge)](https://github.com/ClassicDIY/ModbusTool/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/ClassicDIY/Anemometer?style=for-the-badge)](https://github.com/ClassicDIY/Anemometer/stargazers)
 
 This project is based on the ESP12e, it works with the Adafruit Anemometer https://www.adafruit.com/?q=anemometer&
 
