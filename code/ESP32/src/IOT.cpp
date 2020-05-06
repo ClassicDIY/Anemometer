@@ -141,7 +141,9 @@ void handleSettings()
 	}
 	logd("handleSettings");
 	String s = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\"/>";
-	s += "<title>SkyeTracker</title></head><body>";
+	s += "<title>";
+	s += _iotWebConf.getThingName();
+	s += "</title></head><body>";
 	s += _iotWebConf.getThingName();
 	s += "<ul>";
 	s += "<li>MQTT server: ";
