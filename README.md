@@ -1,14 +1,14 @@
 # Anemometer
 Wireless WIFI Anemometer using ESP32
 
+[![GitHub stars](https://img.shields.io/github/stars/ClassicDIY/Anemometer?style=for-the-badge)](https://github.com/ClassicDIY/Anemometer/stargazers)
+
 |If you find this project useful or interesting, please help support further development!|[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=graham.a.ross%40gmail.com&item_name=Support+Anemometer+development&currency_code=USD&source=url)|
 |---|---|
 
 <p align="center">
   <img src="./QR Code.png" />
 </p>
-
-[![GitHub stars](https://img.shields.io/github/stars/ClassicDIY/Anemometer?style=for-the-badge)](https://github.com/ClassicDIY/Anemometer/stargazers)
 
 This project is based on the ESP32, it works with the Adafruit Anemometer https://www.adafruit.com/?q=anemometer&
 
