@@ -28,9 +28,15 @@ Anemometer blue (signal) | A0 |
 Anemometer brown (+5) | Vin |
 Anemometer black (Gnd) | Gnd |
 
+<p align="center">
+  <img src="./Pictures/ESP32%20Pinout.PNG" width="800"/>
+</p>
+
 Used the following development tools;
 
 <ul>
   <li>Visual Studio Code with the PlatformIO extension.</li>
+  <li>***** Don't forget to upload the index.htm file for the initial setup of the ESP32, Run 'Upload File System Image' platformio command</li>
+  <li>Setup WIFI configuration by logging onto the "Anemometer" Access Point, use "Anemometer" as the AP password. Browse 192.168.4.1 and go to Configuration Page to provide your WIFI credentials.
 </ul>
 
